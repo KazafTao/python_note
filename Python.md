@@ -181,3 +181,110 @@ if __name__ == '__main__':
         thread.join()
 ```
 
+#### 线程池
+
+##### 线程池原理
+
+![image-20220724101942961](https://s2.loli.net/2022/07/24/evQVdhscMICowXS.png)
+
+一个线程的生命周期有新建，就绪，运行，阻塞，终止5种状态。当需要大量线程的时候，频繁地新建终止线程需要系统进行分配回收资源的操作。线程池预先新建一批线程，然后不断地复用这批线程而不是终止再新建，节省了系统为线程分配/回收资源的开销。
+
+##### 适用场景
+
+适合处理突发性大量请求或大量线程完成任务、但实际任务处理时间较短的场景。如web服务器处理大量请求。
+
+同时，因为线程池可以减少系统开销，防止系统因为频繁分配/回收资源导致系统变慢。
+
+线程池demo
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from spider import craw, urls, parse
+
+# 爬取
+with ThreadPoolExecutor() as pool:
+    htmls = pool.map(craw, urls)
+    htmls = list(zip(urls, htmls))
+
+with ThreadPoolExecutor() as pool:
+    futures = {}
+    # 解析
+    for url, html in htmls:
+        future = pool.submit(parse, html)
+        futures[url] = future.result()
+```
+
+### 多进程
+
+multiprocessing是python为了解决GIL缺陷引入的一个模块，原理是用多进程在多核CPU上并行执行。
+
+多进程和多线程在语法上的对比如下图所示
+
+![image-20220724152349576](https://s2.loli.net/2022/07/24/Vjzsha3ITxYyCdL.png)
+
+#### 多进程demo
+
+```python
+import math
+from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor
+
+PRIMES = [112272535095293, ] * 50
+
+
+def is_prime(n):
+    """判断一个整数是否为素数"""
+    if n < 2:
+        return False
+    elif n == 2:
+        return True
+    elif n % 2 == 0:
+        return False
+
+    sqrt_n = int(math.floor(math.sqrt(n)))
+    for i in range(3, sqrt_n + 1, 2):
+        if n % i == 0:
+            return False
+    return True
+
+
+def single_process():
+    if all([is_prime(prime) for prime in PRIMES]):
+        print("素数")
+    else:
+        print("非素数")
+
+
+def multi_process():
+    with ProcessPoolExecutor() as pool:
+        print(list(pool.map(is_prime, PRIMES)))
+
+
+if __name__ == '__main__':
+    start = datetime.now()
+    single_process()
+    end = datetime.now()
+    print(f"单进程花费了{(end - start).seconds}秒")
+    start = datetime.now()
+    multi_process()
+    end = datetime.now()
+    print(f"多线程花费了{(end - start).seconds}秒")
+    
+# 结果
+# 素数
+# 单线程花费了14秒
+# [True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True]
+# 多线程花费了2秒
+```
+
+#### 多进程注意事项
+
+由于进程之间的资源是隔离的，所以使用多进程的时候，声明线程池的时候，使用线程池下所有的代码必须都已声明。
+
+在web开发中，线程池的声明可以放在所有视图函数之后。
+
+### 协程
+
+#### 协程基本原理
+
+一个线程内允许有多个任务，当其中一个任务需要等待IO时，不进行线程切换而是执行线程内的下一个任务。直到操作系统进行调度，才让出CPU。一个任务为一个协程。

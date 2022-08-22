@@ -2,6 +2,8 @@
 
 ## 模块
 
+包是一种用“点式模块名”构造 Python 模块命名空间的方法。Python 只把含 `__init__.py` 文件的目录当成包。这样可以防止以 `string` 等通用名称命名的目录，无意中屏蔽出现在后方模块搜索路径中的有效模块。 最简情况下，`__init__.py` 只是一个空文件，但该文件也可以执行包的初始化代码，或设置 `__all__` 变量
+
 ### python标准库
 
 python标准库包含内置模块。内置模块可以用来实现系统功能，如文件IO等。此外，标准库还有日常编程中的许多标准解决方案。
@@ -13,6 +15,16 @@ python标准库包含内置模块。内置模块可以用来实现系统功能�
 ### 自定义模块
 
 自定义的业务代码
+
+### 模块搜索路径
+
+当一个名为 spam 的模块被导入时，解释器首先搜索具有该名称的内置模块。这些模块的名字被列在 sys.builtin_module_names 中。如果没有找到，它就在变量 sys.path 给出的目录列表中搜索一个名为 spam.py 的文件， sys.path 从这些位置初始化:
+
+- 输入脚本的目录（或未指定文件时的当前目录）。
+
+- PYTHONPATH （目录列表，与 shell 变量 PATH 的语法一样）。
+
+- 依赖于安装的默认值（按照惯例包括一个 site-packages 目录，由 site 模块处理）。
 
 ## 并发
 
@@ -288,3 +300,50 @@ if __name__ == '__main__':
 #### 协程基本原理
 
 一个线程内允许有多个任务，当其中一个任务需要等待IO时，不进行线程切换而是执行线程内的下一个任务。直到操作系统进行调度，才让出CPU。一个任务为一个协程。
+
+## 装饰器
+
+装饰器是是修改其他函数的功能的函数。
+
+在python中，函数可以是对象，函数中也可以定义并调用被定义的函数，同时，函数中也可以返回函数。
+
+最简单的装饰器，就是将函数作为参数，然后在装饰器中定义并调用传递过来的函数，再返回新定义的函数。demo如下。
+
+```python
+from functools import wraps
+
+
+def log(logfile='out.log'):
+    # 定义内部函数
+    def inner(func):
+        # wraps装饰器保留传递过来的函数的函数名
+        @wraps(func)
+        # 内部函数内嵌套定义内部函数
+        def wrapper(*args, **kwargs):
+            with open(logfile, 'a') as f:
+                f.write(f"开始调用{func.__name__}")
+                func(*args, **kwargs)
+                f.write(f"{func.__name__}调用结束")
+
+        # 返回内部函数
+        return wrapper
+
+    return inner
+```
+
+## 业务代码
+
+### 系统信息采集
+
+```python
+print(f"cpu核数 : {psutil.cpu_count()}")
+print(f"cpu使用率 : {psutil.cpu_percent()}")
+mem = psutil.virtual_memory()
+print(f"内存容量 ：{mem.total / 1024 / 1024 / 1024} GB")
+print(f"空闲内存 ：{mem.free / 1024 / 1024 / 1024} GB")
+res = subprocess.run(["df", '-h'], capture_output=True, encoding='utf-8')
+for line in str(res.stdout).split('\n'):
+    if line.startswith('/'):
+        infos = line.split()
+        print(f"分区：{infos[0]} 容量: {infos[1]} 已用：{infos[2]} 可用：{infos[3]}")
+```
